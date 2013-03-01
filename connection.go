@@ -100,9 +100,9 @@ func DialTLS(url string, amqps *tls.Config) (*Connection, error) {
 	}
 
 	// Heartbeating hasn't started yet, don't stall forever on a dead server.
-	if err := conn.SetReadDeadline(time.Now().Add(30 * time.Second)); err != nil {
-		return nil, err
-	}
+	//if err := conn.SetReadDeadline(time.Now().Add(30 * time.Second)); err != nil {
+	//	return nil, err
+	//}
 
 	// amqps schemes get a client TLS encapulation.  With the dial and heartbeat
 	// timeouts so that TLS tunnels don't establish a tunnel to a dead server.
@@ -130,9 +130,9 @@ func DialTLS(url string, amqps *tls.Config) (*Connection, error) {
 	}
 
 	return Open(conn, Config{
-		SASL:      []Authentication{uri.PlainAuth()},
-		Vhost:     uri.Vhost,
-		Heartbeat: 10 * time.Second,
+		SASL:  []Authentication{uri.PlainAuth()},
+		Vhost: uri.Vhost,
+		//Heartbeat: 10 * time.Second,
 	})
 }
 
@@ -148,7 +148,7 @@ func Open(conn io.ReadWriteCloser, config Config) (*Connection, error) {
 		writer:   &writer{bufio.NewWriter(conn)},
 		rpc:      make(chan message),
 		channels: make(map[uint16]*Channel),
-		sends:    make(chan time.Time),
+		sends:    make(chan time.Time, 1),
 		errors:   make(chan *Error, 1),
 	}
 	go me.reader()
@@ -550,6 +550,8 @@ func (me *Connection) openTune(config Config, auth Authentication) error {
 	// Connection.Tune method"
 	if me.Config.Heartbeat > 0 {
 		go me.heartbeater(me.Config.Heartbeat)
+	} else {
+		go me.heartbeater(10)
 	}
 
 	if err := me.send(&methodFrame{
